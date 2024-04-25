@@ -255,7 +255,7 @@ resource "google_storage_bucket_object" "post_startup_script" {
 # }
 
 # -------------------------------------------------------------------
-# ---------- Vertex AI Workbench Instances with GPU ----------
+# ---------- Vertex AI Workbench Instances without GPU ----------
 resource "google_workbench_instance" "vertex_workbench_instance" {
   project         = module.project.project_id
   name            = "${var.environment}-${random_id.random_suffix.hex}"
