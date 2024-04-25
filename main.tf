@@ -1,5 +1,5 @@
 /**
- * Copyright 2021 Google LLC
+ * Copyright 2024 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -211,7 +211,8 @@ resource "google_storage_bucket_object" "post_startup_script" {
 #     image_family = var.source_image_family
 #   }
 
-#   post_startup_script = data.template_file.startup_script_config.rendered
+#   # post_startup_script = data.template_file.startup_script_config.rendered
+#   post_startup_script = "gs://${google_storage_bucket.bucket.id}/${google_storage_bucket_object.post_startup_script.name}"
 #   machine_type        = var.machine_type
 
 #   accelerator_config {
