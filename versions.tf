@@ -1,5 +1,5 @@
 /**
- * Copyright 2021 Google LLC
+ * Copyright 2024 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,8 @@ terraform {
     google = {
       // version 4.31.0 removed because of issue https://github.com/hashicorp/terraform-provider-google/issues/12226
       source  = "hashicorp/google"
-      version = ">= 3.50, != 4.31.0"
+      # version = ">= 3.50, != 4.31.0"
+      version = "5.26.0"
     }
   }
 }

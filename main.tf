@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
+# -------------------------------------------------------------------
+# ---------- Create Project ----------
 module "project" {
   source  = "terraform-google-modules/project-factory/google"
-  version = "~> 11.0"
+  version = "~> 14.5"
 
   name              = "${var.project_name}-${var.environment}-${random_id.random_suffix.hex}"
   random_project_id = "false"
@@ -53,13 +55,15 @@ resource "time_sleep" "wait_for_org_policy" {
 
 
 data "template_file" "startup_script_config" {
-  template = file("${path.module}/files/startup.sh")
+  template = file("${path.module}/files/post_startup_script.sh")
 }
 
 resource "random_id" "random_suffix" {
   byte_length = 4
 }
 
+# -------------------------------------------------------------------
+# ---------- Service Account and IAM ----------
 resource "google_service_account" "main" {
   project      = module.project.project_id
   account_id   = "${var.environment}-${random_id.random_suffix.hex}"
@@ -84,6 +88,8 @@ resource "google_project_iam_member" "notebook_iam_serviceaccount" {
   member  = "serviceAccount:${google_service_account.main.email}"
 }
 
+# -------------------------------------------------------------------
+# ---------- VPC Network and Firewalls ----------
 resource "google_compute_network" "vpc_network" {
   project                 = module.project.project_id
   name                    = "${var.environment}-${random_id.random_suffix.hex}"
@@ -100,7 +106,6 @@ resource "google_compute_subnetwork" "workbench" {
   network                  = google_compute_network.vpc_network.name
 
 }
-
 
 resource "google_compute_subnetwork" "proxy" {
   project       = module.project.project_id
@@ -152,7 +157,6 @@ resource "google_compute_firewall" "googleapi_egress" {
   }
 }
 
-
 resource "google_compute_firewall" "secure_web_proxy_egress" {
   project            = module.project.project_id
   name               = "secure-web-proxy"
@@ -167,7 +171,8 @@ resource "google_compute_firewall" "secure_web_proxy_egress" {
   }
 }
 
-
+# -------------------------------------------------------------------
+# ---------- GCS Bucket ----------
 resource "google_storage_bucket" "bucket" {
   project                     = module.project.project_id
   name                        = "${module.project.project_id}-${random_id.random_suffix.hex}"
@@ -184,55 +189,138 @@ resource "google_storage_bucket_iam_binding" "bucket_iam" {
   ]
 }
 
+resource "google_storage_bucket_object" "post_startup_script" {
+ name         = "post_startup_script.sh"
+ source       = "${path.module}/files/post_startup_script.sh"
+ content_type = "text/plain"
+ bucket       = google_storage_bucket.bucket.id
 
-resource "google_notebooks_instance" "vertex_workbench_instance" {
+ depends_on = [google_storage_bucket.bucket]
+}
+
+# -------------------------------------------------------------------
+# ---------- DEPRECATED EOL JANUARY 2025----------
+# ---------- Vertex AI User-Managed Notebooks ----------
+# resource "google_notebooks_instance" "vertex_workbench_instance" {
+#   project         = module.project.project_id
+#   name            = "${var.environment}-${random_id.random_suffix.hex}"
+#   service_account = google_service_account.main.email
+#   location        = var.zone
+#   vm_image {
+#     project      = var.source_image_project
+#     image_family = var.source_image_family
+#   }
+
+#   post_startup_script = data.template_file.startup_script_config.rendered
+#   machine_type        = var.machine_type
+
+#   accelerator_config {
+#     type       = var.gpu_type
+#     core_count = 1
+#   }
+#   install_gpu_driver = var.install_gpu_driver
+
+#   boot_disk_type    = var.disk_type
+#   boot_disk_size_gb = var.disk_size_gb
+#   network           = google_compute_network.vpc_network.id
+#   subnet            = google_compute_subnetwork.workbench.id
+#   no_public_ip      = true
+#   # If true, forces to use an SSH tunnel.
+#   no_proxy_access = false
+#   instance_owners = var.instance_owners
+
+#   metadata = {
+#     notebook-disable-root      = "true"
+#     notebook-disable-downloads = "true"
+#     notebook-disable-nbconvert = "true"
+#     notebook-upgrade-schedule  = "00 19 * * SUN"
+#   }
+
+#   depends_on = [google_storage_bucket.bucket, google_storage_bucket_object.post_startup_script, time_sleep.wait_for_org_policy]
+# }
+
+# resource "null_resource" "set_secure_boot" {
+#   provisioner "local-exec" {
+#     command = <<EOF
+#     gcloud config set project ${module.project.project_id}
+#     gcloud compute instances stop ${google_notebooks_instance.vertex_workbench_instance.name} --zone ${var.zone}
+#     sleep 120
+#     gcloud compute instances update ${google_notebooks_instance.vertex_workbench_instance.name} --shielded-secure-boot --zone ${var.zone}
+#     gcloud compute instances start ${google_notebooks_instance.vertex_workbench_instance.name} --zone ${var.zone}
+#     gcloud compute instances update ${google_notebooks_instance.vertex_workbench_instance.name} --shielded-learn-integrity-policy --zone ${var.zone}
+#     EOF
+#   }
+#   depends_on = [google_notebooks_instance.vertex_workbench_instance]
+# }
+
+# -------------------------------------------------------------------
+# ---------- Vertex AI Workbench Instances with GPU ----------
+resource "google_workbench_instance" "vertex_workbench_instance" {
   project         = module.project.project_id
   name            = "${var.environment}-${random_id.random_suffix.hex}"
-  service_account = google_service_account.main.email
+  
   location        = var.zone
-  vm_image {
-    project      = var.source_image_project
-    image_family = var.source_image_family
+  
+  gce_setup {
+    service_accounts { 
+      email = google_service_account.main.email
+    }
+
+    # This uses an image from DLVM
+    # vm_image {
+    #   project     = var.source_image_project
+    #   family      = var.source_image_family
+    # }
+
+    # This uses the 1st party image for Vertex AI Workbench Instances
+    vm_image {
+      project     = var.workbench_source_image_project
+      family      = var.workbench_source_image_family
+    }
+
+    machine_type        = var.machine_type
+    # Uncomment to add GPU's
+    # accelerator_configs {
+    #   type       = var.gpu_type
+    #   core_count = var.gpu_core_count
+    # }
+
+    shielded_instance_config {
+      enable_secure_boot = true
+      enable_vtpm = true
+      enable_integrity_monitoring = true
+    }
+
+    boot_disk {
+      disk_type    = var.disk_type
+      disk_size_gb = var.disk_size_gb
+    }
+
+    disable_public_ip = false
+    network_interfaces {
+      network  = google_compute_network.vpc_network.id
+      subnet   = google_compute_subnetwork.workbench.id
+      nic_type = "GVNIC"
+    }
+
+    # https://cloud.google.com/vertex-ai/docs/workbench/reference/rest/v1/projects.locations.runtimes#poststartupscriptbehavior
+    metadata = {
+      terraform                    = "true"
+      install-nvidia-driver        = var.install_gpu_driver
+      post-startup-script          = data.template_file.startup_script_config.rendered
+      post-startup-script          = "gs://${google_storage_bucket.bucket.id}/${google_storage_bucket_object.post_startup_script.name}"
+      post-startup-script-behavior = "DOWNLOAD_AND_RUN_EVERY_START"
+      notebook-disable-root        = "true"
+      notebook-disable-downloads   = "true"
+      notebook-disable-nbconvert   = "true"
+      notebook-upgrade-schedule    = "00 19 * * SUN"
+    }
   }
 
-  post_startup_script = data.template_file.startup_script_config.rendered
-  machine_type        = var.machine_type
-
-  accelerator_config {
-    type       = var.gpu_type
-    core_count = 1
-  }
-  install_gpu_driver = var.install_gpu_driver
-
-  boot_disk_type    = var.disk_type
-  boot_disk_size_gb = var.disk_size_gb
-  network           = google_compute_network.vpc_network.id
-  subnet            = google_compute_subnetwork.workbench.id
-  no_public_ip      = true
   # If true, forces to use an SSH tunnel.
-  no_proxy_access = false
+  disable_proxy_access = false
   instance_owners = var.instance_owners
 
-  metadata = {
-    notebook-disable-root      = "true"
-    notebook-disable-downloads = "true"
-    notebook-disable-nbconvert = "true"
-    notebook-upgrade-schedule  = "00 19 * * SUN"
-  }
-
-  depends_on = [google_storage_bucket.bucket, time_sleep.wait_for_org_policy]
+  depends_on = [google_storage_bucket.bucket, google_storage_bucket_object.post_startup_script, time_sleep.wait_for_org_policy]
 }
 
-resource "null_resource" "set_secure_boot" {
-  provisioner "local-exec" {
-    command = <<EOF
-    gcloud config set project ${module.project.project_id}
-    gcloud compute instances stop ${google_notebooks_instance.vertex_workbench_instance.name} --zone ${var.zone}
-    sleep 120
-    gcloud compute instances update ${google_notebooks_instance.vertex_workbench_instance.name} --shielded-secure-boot --zone ${var.zone}
-    gcloud compute instances start ${google_notebooks_instance.vertex_workbench_instance.name} --zone ${var.zone}
-    gcloud compute instances update ${google_notebooks_instance.vertex_workbench_instance.name} --shielded-learn-integrity-policy --zone ${var.zone}
-    EOF
-  }
-  depends_on = [google_notebooks_instance.vertex_workbench_instance]
-}

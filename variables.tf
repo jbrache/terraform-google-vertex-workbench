@@ -1,5 +1,5 @@
 /**
- * Copyright 2019 Google LLC
+ * Copyright 2024 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 variable "org_id" {
   description = "The numeric organization id"
   type        = string
@@ -60,7 +61,7 @@ variable "dnszone" {
 variable "machine_type" {
   description = "Machine type to application"
   type        = string
-  default     = "n1-standard-1"
+  default     = "n1-standard-4"
 }
 
 variable "gpu_type" {
@@ -69,15 +70,21 @@ variable "gpu_type" {
   default     = "NVIDIA_TESLA_T4"
 }
 
+variable "gpu_core_count" {
+  description = "Count of cores of the accelerator"
+  type        = string
+  default     = 1
+}
+
 variable "install_gpu_driver" {
   description = "Install GPU drivers"
   type        = string
-  default     = true
+  default     = false
 }
 
 variable "disk_size_gb" {
   description = "Boot disk size in GB"
-  default     = "100"
+  default     = "200"
 }
 
 variable "disk_type" {
@@ -100,7 +107,8 @@ variable "labels" {
 variable "source_image_family" {
   description = "The OS Image family"
   type        = string
-  default     = "common-cpu-notebooks-ubuntu-2004"
+  default     = "tf-2-11-cu113-notebooks-ubuntu-2004"
+  # default     = "common-cpu-notebooks-ubuntu-2004"
   #gcloud compute images list --project deeplearning-platform-release
 }
 
@@ -108,6 +116,20 @@ variable "source_image_project" {
   description = "Google Cloud project with OS Image"
   type        = string
   default     = "deeplearning-platform-release"
+}
+
+variable "workbench_source_image_family" {
+  description = "The OS Image family"
+  type        = string
+  default     = "workbench-instances"
+  # https://cloud.google.com/vertex-ai/docs/workbench/instances/create-specific-version
+  #gcloud compute images list --project deeplearning-platform-release
+}
+
+variable "workbench_source_image_project" {
+  description = "Google Cloud project with OS Image"
+  type        = string
+  default     = "cloud-notebooks-managed"
 }
 
 variable "instance_owners" {

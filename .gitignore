@@ -41,8 +41,12 @@ crash.log
 # .tfvars files are managed as part of configuration and so should be included in
 # version control.
 **/*.tfvars
+terraform.tfvars
 
 credentials.json
 
 # tf lock file
 .terraform.lock.hcl
+
+# VS Code files
+*.code-workspace
