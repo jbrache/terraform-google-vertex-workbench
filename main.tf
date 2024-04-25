@@ -307,8 +307,8 @@ resource "google_workbench_instance" "vertex_workbench_instance" {
     # https://cloud.google.com/vertex-ai/docs/workbench/reference/rest/v1/projects.locations.runtimes#poststartupscriptbehavior
     metadata = {
       terraform                    = "true"
+      idle-timeout-seconds         = "10800"
       install-nvidia-driver        = var.install_gpu_driver
-      post-startup-script          = data.template_file.startup_script_config.rendered
       post-startup-script          = "gs://${google_storage_bucket.bucket.id}/${google_storage_bucket_object.post_startup_script.name}"
       post-startup-script-behavior = "DOWNLOAD_AND_RUN_EVERY_START"
       notebook-disable-root        = "true"
