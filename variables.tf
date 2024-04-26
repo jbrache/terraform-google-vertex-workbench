@@ -82,13 +82,23 @@ variable "install_gpu_driver" {
   default     = false
 }
 
-variable "disk_size_gb" {
+variable "boot_disk_size_gb" {
   description = "Boot disk size in GB"
   default     = "200"
 }
 
-variable "disk_type" {
+variable "boot_disk_type" {
   description = "Boot disk type, can be either pd-ssd, local-ssd, or pd-standard"
+  default     = "PD_STANDARD"
+}
+
+variable "data_disk_size_gb" {
+  description = "The size of the disk in GB attached to this VM instance, up to a maximum of 64000 GB (64 TB). If not specified, this defaults to 100."
+  default     = "100"
+}
+
+variable "data_disk_type" {
+  description = "Indicates the type of the disk. Possible values are: PD_STANDARD, PD_SSD, PD_BALANCED, PD_EXTREME."
   default     = "PD_STANDARD"
 }
 

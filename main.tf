@@ -293,11 +293,18 @@ resource "google_workbench_instance" "vertex_workbench_instance" {
     }
 
     boot_disk {
-      disk_type    = var.disk_type
-      disk_size_gb = var.disk_size_gb
+      disk_type    = var.boot_disk_type
+      disk_size_gb = var.boot_disk_size_gb
+    }
+
+    data_disks {
+      disk_type    = var.data_disk_type
+      disk_size_gb = var.data_disk_size_gb
     }
 
     disable_public_ip = false
+    enable_ip_forwarding = false
+
     network_interfaces {
       network  = google_compute_network.vpc_network.id
       subnet   = google_compute_subnetwork.workbench.id
@@ -316,11 +323,17 @@ resource "google_workbench_instance" "vertex_workbench_instance" {
       notebook-disable-nbconvert   = "true"
       notebook-upgrade-schedule    = "00 19 * * SUN"
     }
+    tags = ["workbench_instance_terraform"]
+  }
+
+  labels = {
+    workbench_instance_terraform = "true"
   }
 
   # If true, forces to use an SSH tunnel.
   disable_proxy_access = false
   instance_owners = var.instance_owners
+  desired_state = "ACTIVE"
 
   depends_on = [google_storage_bucket.bucket, google_storage_bucket_object.post_startup_script, time_sleep.wait_for_org_policy]
 }
