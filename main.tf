@@ -323,11 +323,11 @@ resource "google_workbench_instance" "vertex_workbench_instance" {
       notebook-disable-nbconvert   = "true"
       notebook-upgrade-schedule    = "00 19 * * SUN"
     }
-    tags = ["workbench"]
+    tags = ["workbench-instance-terraform"]
   }
 
   labels = {
-    workbench_instance_terraform = "true"
+    workbench-instance-terraform = "true"
   }
 
   # If true, forces to use an SSH tunnel.
